@@ -1,0 +1,29 @@
+{
+  "description": "Logs documentation fetched by the agent for aeo-meter",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^WebFetch$|^mcp__.*(fetch|scrape|crawl)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/probe.py\" /tmp/aeo-payload-post-tool-use.json",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "^WebFetch$|^mcp__.*(fetch|scrape|crawl)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/probe.py\" /tmp/aeo-payload-post-tool-use-failure.json",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
