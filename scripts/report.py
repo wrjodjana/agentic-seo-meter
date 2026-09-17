@@ -7,6 +7,7 @@ import urllib.request
 from urllib.parse import urlparse
 
 from store import log_path
+from urls import absorb, recalled
 
 LLMS_TIMEOUT = 5
 LLMS_MIN_FETCHES = 1
@@ -61,13 +62,18 @@ def tokens(records):
     return sum(number(record.get("bytes")) // 4 for record in records)
 
 
-def summary(records, scope):
-    failures = [record for record in records if record.get("event") == "PostToolUseFailure"]
-    unsized = [record for record in records if record.get("event") != "PostToolUseFailure" and record.get("bytes") is None]
+def failed(record):
+    return record.get("event") == "PostToolUseFailure" or number(record.get("code")) >= 400
+
+
+def summary(records, searches, scope):
+    failures = [record for record in records if failed(record)]
+    unsized = [record for record in records if not failed(record) and record.get("bytes") is None]
     lines = [
         f"## Docs fetch report ({scope})",
         "",
         f"- Fetches: {len(records):,} ({len(failures):,} failed)",
+        f"- Searches: {len(searches):,}",
         f"- Bytes: {byte_total(records):,}",
         f"- Estimated tokens: {tokens(records):,}",
         f"- Fetch time: {sum(number(record.get('duration_ms')) for record in records) / 1000:,.1f} s",
@@ -131,6 +137,40 @@ def llms_lines(records):
     return lines
 
 
+def unsourced(records):
+    flagged = []
+    for items in group(records, lambda record: record.get("session_id")).values():
+        seen = set()
+        for record in sorted(items, key=lambda item: item.get("timestamp") or ""):
+            if recalled(record.get("url"), seen):
+                flagged.append(record)
+            absorb(record, seen)
+    return flagged
+
+
+def unsourced_lines(entries, records, searches):
+    flagged = unsourced(entries)
+    lines = ["", "### Unsourced URLs", ""]
+    if not flagged:
+        lines.append("Every fetched path came from a search result or a page already fetched.")
+        return lines
+    lines.append("No search result or earlier fetched page contained these paths, so they were written from the model's own memory:")
+    lines.append("")
+    rows = [
+        (record.get("url"), f"{tokens([record]):,}")
+        for record in sorted(flagged, key=lambda record: tokens([record]), reverse=True)
+    ]
+    lines.append(table(["URL", "Est. tokens"], rows))
+    lines.append("")
+    lines.append(
+        f"{len(flagged):,} of {len(records):,} fetches unsourced, {tokens(flagged):,} est. tokens, "
+        f"against {len(searches):,} search{'' if len(searches) == 1 else 'es'}."
+    )
+    if any(record.get("links_truncated") for record in entries):
+        lines.append("Some pages had more links than the log keeps, so a path here may still have been linked.")
+    return lines
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", default="")
@@ -144,16 +184,18 @@ def main():
         out(f"No docs fetches logged yet. Log file: {path}\n")
         return
 
-    records = read_records(path)
+    entries = read_records(path)
     by_session = bool(args.session) and not args.all
     if by_session:
-        records = [record for record in records if record.get("session_id") == args.session]
+        entries = [record for record in entries if record.get("session_id") == args.session]
     scope = f"session {args.session}" if by_session else "all sessions"
-    if not records:
+    searches = [record for record in entries if record.get("tool_name") == "WebSearch"]
+    records = [record for record in entries if record.get("tool_name") != "WebSearch"]
+    if not entries:
         out(f"No docs fetches logged for {scope}. Log file: {path}\n")
         return
 
-    lines = summary(records, scope)
+    lines = summary(records, searches, scope)
 
     if not by_session:
         sessions = group(records, lambda record: record.get("session_id") or "(unknown)")
@@ -177,6 +219,8 @@ def main():
         for url, items in ranked[: args.top]
     ]
     lines += ["", "### URLs by estimated tokens", "", table(["URL", "Fetches", "Bytes", "Est. tokens"], rows)]
+
+    lines += unsourced_lines(entries, records, searches)
 
     try:
         lines += llms_lines(records)

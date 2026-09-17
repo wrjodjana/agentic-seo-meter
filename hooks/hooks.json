@@ -1,9 +1,21 @@
 {
   "description": "Logs documentation fetched by the agent for agentic-seo-meter",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^WebFetch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/python.sh\" \"${CLAUDE_PLUGIN_ROOT}/scripts/check_fetch.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
-        "matcher": "^WebFetch$|^mcp__.*(fetch|scrape|crawl)",
+        "matcher": "^WebFetch$|^WebSearch$|^mcp__.*(fetch|scrape|crawl|search)",
         "hooks": [
           {
             "type": "command",
@@ -15,7 +27,7 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "^WebFetch$|^mcp__.*(fetch|scrape|crawl)",
+        "matcher": "^WebFetch$|^WebSearch$|^mcp__.*(fetch|scrape|crawl|search)",
         "hooks": [
           {
             "type": "command",

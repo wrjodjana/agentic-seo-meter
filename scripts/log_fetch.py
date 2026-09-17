@@ -4,6 +4,7 @@ import os
 import sys
 
 from store import log_path
+from urls import links
 
 
 def field(obj, key):
@@ -42,6 +43,8 @@ try:
     if url is None:
         url = field(tool_response, "url")
 
+    found, truncated = links(tool_response, url)
+
     record = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "event": field(payload, "hook_event_name"),
@@ -52,7 +55,10 @@ try:
         "bytes": size,
         "code": field(tool_response, "code"),
         "duration_ms": duration_ms,
+        "links": found,
     }
+    if truncated:
+        record["links_truncated"] = True
 
     path = log_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
