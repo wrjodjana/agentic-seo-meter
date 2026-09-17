@@ -1,5 +1,5 @@
 {
-  "description": "Logs documentation fetched by the agent for aeo-meter",
+  "description": "Logs documentation fetched by the agent for agentic-seo-meter",
   "hooks": {
     "PostToolUse": [
       {
