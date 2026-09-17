@@ -1,0 +1,22 @@
+{
+  "name": "agentic-seo-meter",
+  "owner": {
+    "name": "Warren Jodjana",
+    "url": "https://github.com/wrjodjana"
+  },
+  "description": "Marketplace for the agentic-seo-meter plugin.",
+  "plugins": [
+    {
+      "name": "agentic-seo-meter",
+      "source": "./",
+      "description": "Logs documentation your coding agent fetches and reports token cost per session.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Warren Jodjana"
+      },
+      "repository": "https://github.com/wrjodjana/agentic-seo-meter",
+      "license": "MIT",
+      "keywords": ["aeo", "agentic-seo", "seo", "token-budget", "documentation", "llms-txt", "observability"]
+    }
+  ]
+}
